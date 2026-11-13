@@ -1,0 +1,14 @@
+# Secrets & credentials (Zero-Leak policy)
+.env*
+!.env.example
+*.pem
+*.key
+*.asc
+id_rsa*
+*secret*
+*credential*
+
+# Local tooling & OS files
+.codegraph/
+.DS_Store
+*.log

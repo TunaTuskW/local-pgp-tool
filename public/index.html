@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PGP Tool — Local Client-Side OpenPGP Workbench</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-main">
+        <div class="title-row">
+          <h1>PGP Tool</h1>
+          <span class="security-badge" title="All cryptography runs locally in your browser with OpenPGP.js and zero outbound network requests.">
+            100% Client-Side &bull; Offline
+          </span>
+        </div>
+        <p class="subtitle">
+          Local OpenPGP Key Generator, Signing, Verification, Encryption &amp; Decryption Workbench
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <div id="session-pill" class="session-pill" hidden>
+          <span class="session-dot" aria-hidden="true"></span>
+          <span id="session-label" class="session-label"></span>
+          <button type="button" id="btn-clear-session" class="btn-ghost-xs" title="Wipe in-memory keys">
+            Clear Memory
+          </button>
+        </div>
+        <button type="button" id="btn-theme" class="btn-secondary btn-sm" aria-label="Toggle dark mode">
+          Dark Mode
+        </button>
+      </div>
+    </header>
+
+    <main class="workbench">
+      <nav class="tab-bar" role="tablist" aria-label="PGP Operations">
+        <button type="button" role="tab" id="tab-generate" class="tab-btn" aria-selected="true" aria-controls="panel-generate" tabindex="0">
+          Generate PGP Keys
+        </button>
+        <button type="button" role="tab" id="tab-sign" class="tab-btn" aria-selected="false" aria-controls="panel-sign" tabindex="-1">
+          Sign
+        </button>
+        <button type="button" role="tab" id="tab-verify" class="tab-btn" aria-selected="false" aria-controls="panel-verify" tabindex="-1">
+          Verify
+        </button>
+        <button type="button" role="tab" id="tab-encrypt" class="tab-btn" aria-selected="false" aria-controls="panel-encrypt" tabindex="-1">
+          Encrypt
+        </button>
+        <button type="button" role="tab" id="tab-decrypt" class="tab-btn" aria-selected="false" aria-controls="panel-decrypt" tabindex="-1">
+          Decrypt
+        </button>
+      </nav>
+
+      <!-- TAB 1: GENERATE PGP KEYS -->
+      <section id="panel-generate" class="tab-panel" role="tabpanel" aria-labelledby="tab-generate">
+        <div class="panel-header">
+          <div>
+            <h2>Generate OpenPGP Key Pair</h2>
+            <p class="panel-desc">Create a new public/private key pair and revocation certificate locally in your browser.</p>
+          </div>
+        </div>
+
+        <form id="form-generate" class="form-stack" novalidate>
+          <div class="grid-2">
+            <div class="field">
+              <label for="gen-name">Full Name <span class="req" aria-hidden="true">*</span></label>
+              <input id="gen-name" type="text" placeholder="e.g. Alice Nguyen" autocomplete="off" required aria-required="true">
+            </div>
+            <div class="field">
+              <label for="gen-email">Email Address <span class="req" aria-hidden="true">*</span></label>
+              <input id="gen-email" type="email" placeholder="e.g. alice@example.com" autocomplete="off" required aria-required="true">
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="field">
+              <label for="gen-algo">Algorithm</label>
+              <select id="gen-algo">
+                <option value="ecc-curve25519" selected>ECC (Curve25519 — Recommended)</option>
+                <option value="ecc-p256">ECC (NIST P-256)</option>
+                <option value="rsa-2048">RSA (2048-bit)</option>
+                <option value="rsa-4096">RSA (4096-bit — Slower)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="gen-expiry">Key Expiration</label>
+              <select id="gen-expiry">
+                <option value="0">Never expires</option>
+                <option value="31536000">1 Year</option>
+                <option value="63072000" selected>2 Years</option>
+                <option value="157680000">5 Years</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="gen-passphrase">Passphrase (Optional, Recommended)</label>
+              <div class="input-with-btn">
+                <input id="gen-passphrase" type="password" placeholder="Protects your private key" autocomplete="new-password">
+                <button type="button" class="btn-ghost-xs toggle-vis" data-target="gen-passphrase" aria-label="Show passphrase">Show</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="gen-status" class="status-banner" role="alert" hidden></div>
+
+          <div class="action-row">
+            <button type="submit" id="btn-generate" class="btn-primary">Generate Key Pair</button>
+            <button type="button" id="btn-gen-reset" class="btn-secondary">Reset</button>
+          </div>
+        </form>
+
+        <div id="gen-output" class="output-section" hidden>
+          <div class="meta-bar">
+            <div class="meta-item">
+              <span class="meta-label">Fingerprint</span>
+              <code id="gen-fingerprint" class="mono-code"></code>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Key ID</span>
+              <code id="gen-keyid" class="mono-code"></code>
+            </div>
+            <button type="button" id="btn-use-generated" class="btn-secondary btn-sm">
+              Keep in Session Memory
+            </button>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <div class="label-row">
+                <label for="gen-out-pub">Public Key (Share Freely)</label>
+                <div class="mini-actions">
+                  <button type="button" class="btn-ghost-xs copy-btn" data-source="gen-out-pub">Copy</button>
+                  <button type="button" class="btn-ghost-xs download-btn" data-source="gen-out-pub" data-filename="public-key.asc">Download .asc</button>
+                </div>
+              </div>
+              <textarea id="gen-out-pub" class="mono-area" rows="10" readonly></textarea>
+            </div>
+
+            <div class="field">
+              <div class="label-row">
+                <label for="gen-out-priv">Private Key (Keep Secret)</label>
+                <div class="mini-actions">
+                  <button type="button" class="btn-ghost-xs copy-btn" data-source="gen-out-priv">Copy</button>
+                  <button type="button" class="btn-ghost-xs download-btn" data-source="gen-out-priv" data-filename="private-key.asc">Download .asc</button>
+                </div>
+              </div>
+              <textarea id="gen-out-priv" class="mono-area" rows="10" readonly></textarea>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="gen-out-rev">Revocation Certificate (Store Safely Offline)</label>
+              <div class="mini-actions">
+                <button type="button" class="btn-ghost-xs copy-btn" data-source="gen-out-rev">Copy</button>
+                <button type="button" class="btn-ghost-xs download-btn" data-source="gen-out-rev" data-filename="revocation-cert.asc">Download .asc</button>
+              </div>
+            </div>
+            <textarea id="gen-out-rev" class="mono-area" rows="5" readonly></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: SIGN -->
+      <section id="panel-sign" class="tab-panel" role="tabpanel" aria-labelledby="tab-sign" hidden>
+        <div class="panel-header">
+          <div>
+            <h2>Sign Message</h2>
+            <p class="panel-desc">Prove authorship and integrity using your private key.</p>
+          </div>
+        </div>
+
+        <form id="form-sign" class="form-stack" novalidate>
+          <div class="field">
+            <div class="label-row">
+              <label for="sign-message">Message to Sign <span class="req" aria-hidden="true">*</span></label>
+              <label class="file-pill" for="sign-msg-file">
+                Load File
+                <input id="sign-msg-file" type="file" class="sr-file" data-target="sign-message">
+              </label>
+            </div>
+            <textarea id="sign-message" rows="5" placeholder="Enter plaintext message to sign..." required aria-required="true"></textarea>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <div class="label-row">
+                <label for="sign-privkey">Your Private Key <span class="req" aria-hidden="true">*</span></label>
+                <div class="mini-actions">
+                  <button type="button" class="btn-ghost-xs load-session-btn" data-kind="private" data-target="sign-privkey" data-pass-target="sign-passphrase">Use Session Key</button>
+                  <label class="file-pill" for="sign-key-file">
+                    Upload .asc
+                    <input id="sign-key-file" type="file" accept=".asc,.pgp,.gpg,.txt" class="sr-file" data-target="sign-privkey">
+                  </label>
+                </div>
+              </div>
+              <textarea id="sign-privkey" class="mono-area" rows="7" placeholder="-----BEGIN PGP PRIVATE KEY BLOCK-----" required aria-required="true"></textarea>
+            </div>
+
+            <div class="form-stack">
+              <div class="field">
+                <label for="sign-passphrase">Private Key Passphrase</label>
+                <div class="input-with-btn">
+                  <input id="sign-passphrase" type="password" placeholder="Leave blank if key has no passphrase" autocomplete="off">
+                  <button type="button" class="btn-ghost-xs toggle-vis" data-target="sign-passphrase" aria-label="Show passphrase">Show</button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="sign-mode">Signature Format</label>
+                <select id="sign-mode">
+                  <option value="cleartext" selected>Cleartext Signed Message (Human-readable text + signature)</option>
+                  <option value="detached">Detached Signature Only (-----BEGIN PGP SIGNATURE-----)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="sign-status" class="status-banner" role="alert" hidden></div>
+
+          <div class="action-row">
+            <button type="submit" id="btn-sign" class="btn-primary">Sign Message</button>
+            <button type="button" id="btn-sign-clear" class="btn-secondary">Clear</button>
+          </div>
+        </form>
+
+        <div id="sign-output" class="output-section" hidden>
+          <div class="field">
+            <div class="label-row">
+              <label for="sign-out-text">Signed Output</label>
+              <div class="mini-actions">
+                <button type="button" class="btn-ghost-xs copy-btn" data-source="sign-out-text">Copy</button>
+                <button type="button" class="btn-ghost-xs download-btn" data-source="sign-out-text" data-filename="signed-message.asc">Download .asc</button>
+              </div>
+            </div>
+            <textarea id="sign-out-text" class="mono-area" rows="10" readonly></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: VERIFY -->
+      <section id="panel-verify" class="tab-panel" role="tabpanel" aria-labelledby="tab-verify" hidden>
+        <div class="panel-header">
+          <div>
+            <h2>Verify Signature</h2>
+            <p class="panel-desc">Confirm that a signed message came from the holder of the public key and was not modified.</p>
+          </div>
+        </div>
+
+        <form id="form-verify" class="form-stack" novalidate>
+          <div class="field">
+            <label for="verify-mode">Signature Type</label>
+            <select id="verify-mode">
+              <option value="cleartext" selected>Cleartext Signed Message (-----BEGIN PGP SIGNED MESSAGE-----)</option>
+              <option value="detached">Detached Signature (Original text + separate -----BEGIN PGP SIGNATURE-----)</option>
+            </select>
+          </div>
+
+          <div id="verify-original-wrap" class="field" hidden>
+            <div class="label-row">
+              <label for="verify-original-message">Original Unsigned Message <span class="req" aria-hidden="true">*</span></label>
+              <label class="file-pill" for="verify-orig-file">
+                Load File
+                <input id="verify-orig-file" type="file" class="sr-file" data-target="verify-original-message">
+              </label>
+            </div>
+            <textarea id="verify-original-message" rows="4" placeholder="Paste exact original message text..."></textarea>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <div class="label-row">
+                <label for="verify-signature" id="verify-sig-label">Signed Message <span class="req" aria-hidden="true">*</span></label>
+                <label class="file-pill" for="verify-sig-file">
+                  Upload .asc
+                  <input id="verify-sig-file" type="file" accept=".asc,.sig,.txt" class="sr-file" data-target="verify-signature">
+                </label>
+              </div>
+              <textarea id="verify-signature" class="mono-area" rows="8" placeholder="-----BEGIN PGP SIGNED MESSAGE-----" required aria-required="true"></textarea>
+            </div>
+
+            <div class="field">
+              <div class="label-row">
+                <label for="verify-pubkey">Sender's Public Key <span class="req" aria-hidden="true">*</span></label>
+                <div class="mini-actions">
+                  <button type="button" class="btn-ghost-xs load-session-btn" data-kind="public" data-target="verify-pubkey">Use Session Key</button>
+                  <label class="file-pill" for="verify-key-file">
+                    Upload .asc
+                    <input id="verify-key-file" type="file" accept=".asc,.pgp,.gpg,.txt" class="sr-file" data-target="verify-pubkey">
+                  </label>
+                </div>
+              </div>
+              <textarea id="verify-pubkey" class="mono-area" rows="8" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----" required aria-required="true"></textarea>
+            </div>
+          </div>
+
+          <div id="verify-status" class="status-banner" role="alert" hidden></div>
+
+          <div class="action-row">
+            <button type="submit" id="btn-verify" class="btn-primary">Verify Signature</button>
+            <button type="button" id="btn-verify-clear" class="btn-secondary">Clear</button>
+          </div>
+        </form>
+
+        <div id="verify-output" class="output-section" hidden>
+          <div id="verify-result-card" class="verify-card">
+            <div class="verify-badge" id="verify-badge"></div>
+            <div class="verify-meta" id="verify-meta"></div>
+          </div>
+          <div id="verify-extracted-wrap" class="field" hidden>
+            <label for="verify-extracted-text">Verified Message Content</label>
+            <textarea id="verify-extracted-text" rows="5" readonly></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: ENCRYPT -->
+      <section id="panel-encrypt" class="tab-panel" role="tabpanel" aria-labelledby="tab-encrypt" hidden>
+        <div class="panel-header">
+          <div>
+            <h2>Encrypt Message</h2>
+            <p class="panel-desc">Encrypt data for one or more recipients (and optionally sign with your private key).</p>
+          </div>
+        </div>
+
+        <form id="form-encrypt" class="form-stack" novalidate>
+          <div class="field">
+            <div class="label-row">
+              <label for="enc-message">Plaintext Message <span class="req" aria-hidden="true">*</span></label>
+              <label class="file-pill" for="enc-msg-file">
+                Load File
+                <input id="enc-msg-file" type="file" class="sr-file" data-target="enc-message">
+              </label>
+            </div>
+            <textarea id="enc-message" rows="5" placeholder="Enter confidential message to encrypt..." required aria-required="true"></textarea>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <div class="label-row">
+                <label for="enc-pubkey">Recipient Public Key(s)</label>
+                <div class="mini-actions">
+                  <button type="button" class="btn-ghost-xs load-session-btn" data-kind="public" data-target="enc-pubkey">Use Session Key</button>
+                  <label class="file-pill" for="enc-key-file">
+                    Upload .asc
+                    <input id="enc-key-file" type="file" accept=".asc,.pgp,.gpg,.txt" class="sr-file" data-target="enc-pubkey">
+                  </label>
+                </div>
+              </div>
+              <textarea id="enc-pubkey" class="mono-area" rows="7" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK----- (You can paste multiple public keys)"></textarea>
+            </div>
+
+            <div class="form-stack">
+              <div class="field">
+                <label for="enc-sym-pass">Or Encrypt with Symmetric Password (Optional)</label>
+                <div class="input-with-btn">
+                  <input id="enc-sym-pass" type="password" placeholder="Optional passphrase (AES-256)" autocomplete="new-password">
+                  <button type="button" class="btn-ghost-xs toggle-vis" data-target="enc-sym-pass" aria-label="Show password">Show</button>
+                </div>
+              </div>
+
+              <details class="optional-panel">
+                <summary>Optional: Also Sign Message (Sign-then-Encrypt)</summary>
+                <div class="optional-body form-stack">
+                  <div class="field">
+                    <div class="label-row">
+                      <label for="enc-sign-privkey">Your Signing Private Key</label>
+                      <button type="button" class="btn-ghost-xs load-session-btn" data-kind="private" data-target="enc-sign-privkey" data-pass-target="enc-sign-passphrase">Use Session Key</button>
+                    </div>
+                    <textarea id="enc-sign-privkey" class="mono-area" rows="4" placeholder="-----BEGIN PGP PRIVATE KEY BLOCK-----"></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="enc-sign-passphrase">Signing Key Passphrase</label>
+                    <input id="enc-sign-passphrase" type="password" placeholder="Leave blank if unprotected" autocomplete="off">
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <div id="enc-status" class="status-banner" role="alert" hidden></div>
+
+          <div class="action-row">
+            <button type="submit" id="btn-encrypt" class="btn-primary">Encrypt Message</button>
+            <button type="button" id="btn-enc-clear" class="btn-secondary">Clear</button>
+          </div>
+        </form>
+
+        <div id="enc-output" class="output-section" hidden>
+          <div class="field">
+            <div class="label-row">
+              <label for="enc-out-text">Encrypted PGP Message</label>
+              <div class="mini-actions">
+                <button type="button" class="btn-ghost-xs copy-btn" data-source="enc-out-text">Copy</button>
+                <button type="button" class="btn-ghost-xs download-btn" data-source="enc-out-text" data-filename="encrypted-message.asc">Download .asc</button>
+              </div>
+            </div>
+            <textarea id="enc-out-text" class="mono-area" rows="10" readonly></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: DECRYPT -->
+      <section id="panel-decrypt" class="tab-panel" role="tabpanel" aria-labelledby="tab-decrypt" hidden>
+        <div class="panel-header">
+          <div>
+            <h2>Decrypt Message</h2>
+            <p class="panel-desc">Decrypt an armored PGP message using your private key or symmetric password.</p>
+          </div>
+        </div>
+
+        <form id="form-decrypt" class="form-stack" novalidate>
+          <div class="field">
+            <div class="label-row">
+              <label for="dec-message">Encrypted PGP Message <span class="req" aria-hidden="true">*</span></label>
+              <label class="file-pill" for="dec-msg-file">
+                Upload .asc
+                <input id="dec-msg-file" type="file" accept=".asc,.pgp,.gpg,.txt" class="sr-file" data-target="dec-message">
+              </label>
+            </div>
+            <textarea id="dec-message" class="mono-area" rows="7" placeholder="-----BEGIN PGP MESSAGE-----" required aria-required="true"></textarea>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <div class="label-row">
+                <label for="dec-privkey">Your Private Key</label>
+                <div class="mini-actions">
+                  <button type="button" class="btn-ghost-xs load-session-btn" data-kind="private" data-target="dec-privkey" data-pass-target="dec-passphrase">Use Session Key</button>
+                  <label class="file-pill" for="dec-key-file">
+                    Upload .asc
+                    <input id="dec-key-file" type="file" accept=".asc,.pgp,.gpg,.txt" class="sr-file" data-target="dec-privkey">
+                  </label>
+                </div>
+              </div>
+              <textarea id="dec-privkey" class="mono-area" rows="7" placeholder="-----BEGIN PGP PRIVATE KEY BLOCK-----"></textarea>
+            </div>
+
+            <div class="form-stack">
+              <div class="field">
+                <label for="dec-passphrase">Private Key Passphrase (or Symmetric Password)</label>
+                <div class="input-with-btn">
+                  <input id="dec-passphrase" type="password" placeholder="Enter key passphrase or symmetric password" autocomplete="off">
+                  <button type="button" class="btn-ghost-xs toggle-vis" data-target="dec-passphrase" aria-label="Show passphrase">Show</button>
+                </div>
+              </div>
+
+              <details class="optional-panel">
+                <summary>Optional: Verify Embedded Signature</summary>
+                <div class="optional-body form-stack">
+                  <div class="field">
+                    <div class="label-row">
+                      <label for="dec-verify-pubkey">Sender's Public Key</label>
+                      <button type="button" class="btn-ghost-xs load-session-btn" data-kind="public" data-target="dec-verify-pubkey">Use Session Key</button>
+                    </div>
+                    <textarea id="dec-verify-pubkey" class="mono-area" rows="4" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----"></textarea>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <div id="dec-status" class="status-banner" role="alert" hidden></div>
+
+          <div class="action-row">
+            <button type="submit" id="btn-decrypt" class="btn-primary">Decrypt Message</button>
+            <button type="button" id="btn-dec-clear" class="btn-secondary">Clear</button>
+          </div>
+        </form>
+
+        <div id="dec-output" class="output-section" hidden>
+          <div id="dec-sig-badge" class="verify-card" hidden></div>
+          <div class="field">
+            <div class="label-row">
+              <label for="dec-out-text">Decrypted Plaintext</label>
+              <div class="mini-actions">
+                <button type="button" class="btn-ghost-xs copy-btn" data-source="dec-out-text">Copy</button>
+                <button type="button" class="btn-ghost-xs download-btn" data-source="dec-out-text" data-filename="decrypted.txt">Download .txt</button>
+              </div>
+            </div>
+            <textarea id="dec-out-text" rows="7" readonly></textarea>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span>Powered by OpenPGP.js (local vendored bundle). Keys stay in RAM only and are cleared on page reload.</span>
+    </footer>
+  </div>
+
+  <script src="vendor/openpgp.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

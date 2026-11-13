@@ -1,0 +1,14 @@
+services:
+  pgp-tool:
+    build: .
+    image: local-pgp-tool:latest
+    container_name: local-pgp-tool
+    ports:
+      - "8080:80"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
